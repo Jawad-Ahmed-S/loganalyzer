@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Analysis Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',sans-serif; background:#f1f5f9; color:#1e293b; }
+
+  .topbar {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    padding: 28px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar-left h1 {
+    font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: -0.4px;
+  }
+  .topbar-left .subtitle {
+    font-size: 0.82rem; color: #94a3b8; margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .topbar-right {
+    text-align: right;
+  }
+  .topbar-right .date-range {
+    font-size: 0.85rem; color: #cbd5e1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .topbar-right .total-badge {
+    display: inline-block; margin-top: 6px;
+    background: #1d4ed8; color: #fff;
+    font-size: 0.78rem; font-weight: 600;
+    padding: 4px 12px; border-radius: 20px;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  .section { margin-bottom: 36px; }
+  .section-header {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 2px; color: #64748b; margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 2px solid #e2e8f0;
+  }
+
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+  .card-title {
+    font-size: 0.78rem; font-weight: 600; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 18px;
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-wrap { position: relative; height: 300px; }
+  .chart-wrap-tall { position: relative; height: 320px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #94a3b8; padding: 8px 12px;
+    text-align: left; border-bottom: 1px solid #f1f5f9;
+  }
+  td { padding: 10px 12px; border-bottom: 1px solid #f8fafc; font-size: 0.84rem; color: #334155; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafc; }
+
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.79rem; }
+  .muted { color: #94a3b8; }
+  .danger { color: #ef4444; }
+  .warn { color: #f59e0b; }
+  .success { color: #16a34a; }
+  .rank { color: #cbd5e1; font-weight: 600; width: 28px; }
+
+  .bar-wrap { background: #f1f5f9; border-radius: 4px; height: 6px; width: 100px; }
+  .bar-fill  { background: #3b82f6; border-radius: 4px; height: 6px; }
+
+  .stat-big {
+    display: flex; flex-direction: column; justify-content: center;
+    align-items: center; gap: 32px; height: 100%; padding: 16px 0;
+  }
+  .stat-big-item { text-align: center; }
+  .stat-big-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.2px; color: #94a3b8; margin-bottom: 10px;
+  }
+  .stat-big-value {
+    font-size: 3rem; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; line-height: 1;
+  }
+  .stat-big-sub { font-size: 0.82rem; color: #94a3b8; margin-top: 8px; }
+  .divider { width: 60%; height: 1px; background: #f1f5f9; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>Log Analysis Report</h1>
+    <div class="subtitle">Server access log analysis</div>
+  </div>
+  <div class="topbar-right">
+    <div class="date-range">March 14, 2024 &nbsp;&mdash;&nbsp; May 22, 2026</div>
+    <span class="total-badge">4,636 requests</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="section">
+    <div class="section-header">Traffic</div>
+    <div class="card">
+      <div class="card-title">Requests Per Hour</div>
+      <div class="chart-wrap-tall"><canvas id="trafficChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Status Codes</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Distribution</div>
+        <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Breakdown</div>
+        <table>
+          <tr><th>Code</th><th>Description</th><th>Count</th><th>%</th></tr>
+          <tr><td class='mono success'>200</td><td>OK</td><td class='mono'>3,123</td><td class='mono muted'>67.4%</td></tr><tr><td class='mono success'>201</td><td>Created</td><td class='mono'>231</td><td class='mono muted'>5.0%</td></tr><tr><td class='mono success'>204</td><td>No Content</td><td class='mono'>133</td><td class='mono muted'>2.9%</td></tr><tr><td class='mono warn'>400</td><td>Bad Request</td><td class='mono'>181</td><td class='mono muted'>3.9%</td></tr><tr><td class='mono warn'>401</td><td>Unauthorized</td><td class='mono'>134</td><td class='mono muted'>2.9%</td></tr><tr><td class='mono warn'>403</td><td>Forbidden</td><td class='mono'>93</td><td class='mono muted'>2.0%</td></tr><tr><td class='mono warn'>404</td><td>Not Found</td><td class='mono'>114</td><td class='mono muted'>2.5%</td></tr><tr><td class='mono danger'>500</td><td>Internal Server Error</td><td class='mono'>77</td><td class='mono muted'>1.7%</td></tr><tr><td class='mono danger'>502</td><td>Bad Gateway</td><td class='mono'>21</td><td class='mono muted'>0.5%</td></tr><tr><td class='mono danger'>503</td><td>Service Unavailable</td><td class='mono'>29</td><td class='mono muted'>0.6%</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Response Time</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Distribution</div>
+        <div class="chart-wrap"><canvas id="rtimeChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="stat-big">
+          <div class="stat-big-item">
+            <div class="stat-big-label">Avg Response Time</div>
+            <div class="stat-big-value" style="color:#3b82f6">3087</div>
+            <div class="stat-big-sub">milliseconds</div>
+          </div>
+          <div class="divider"></div>
+          <div class="stat-big-item">
+            <div class="stat-big-label">Error Rate</div>
+            <div class="stat-big-value" style="color:#ef4444">14.0%</div>
+            <div class="stat-big-sub">4xx + 5xx responses</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Endpoints</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Top 10 by Traffic</div>
+        <table>
+          <tr><th>#</th><th>Endpoint</th><th>Requests</th><th></th><th>%</th></tr>
+          <
+                <td class="rank">1</td>
+                <td class="mono">/api/logout</td>
+                <td class="mono">269</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.8%"></div></div></td>
+                <td class="mono muted">5.8%</td>
+             </tr><
+                <td class="rank">2</td>
+                <td class="mono">/api/products</td>
+                <td class="mono">269</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.8%"></div></div></td>
+                <td class="mono muted">5.8%</td>
+             </tr><
+                <td class="rank">3</td>
+                <td class="mono">/graphql</td>
+                <td class="mono">266</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.7%"></div></div></td>
+                <td class="mono muted">5.7%</td>
+             </tr><
+                <td class="rank">4</td>
+                <td class="mono">/admin/dashboard</td>
+                <td class="mono">266</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.7%"></div></div></td>
+                <td class="mono muted">5.7%</td>
+             </tr><
+                <td class="rank">5</td>
+                <td class="mono">/api/users/123</td>
+                <td class="mono">250</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.4%"></div></div></td>
+                <td class="mono muted">5.4%</td>
+             </tr><
+                <td class="rank">6</td>
+                <td class="mono">/static/index.html</td>
+                <td class="mono">246</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.3%"></div></div></td>
+                <td class="mono muted">5.3%</td>
+             </tr><
+                <td class="rank">7</td>
+                <td class="mono">/api/orders/789</td>
+                <td class="mono">245</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.3%"></div></div></td>
+                <td class="mono muted">5.3%</td>
+             </tr><
+                <td class="rank">8</td>
+                <td class="mono">/api/users</td>
+                <td class="mono">244</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.3%"></div></div></td>
+                <td class="mono muted">5.3%</td>
+             </tr><
+                <td class="rank">9</td>
+                <td class="mono">/api/search</td>
+                <td class="mono">244</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.3%"></div></div></td>
+                <td class="mono muted">5.3%</td>
+             </tr><
+                <td class="rank">10</td>
+                <td class="mono">/api/orders</td>
+                <td class="mono">243</td>
+                <td><div class="bar-wrap"><div class="bar-fill" style="width:5.2%"></div></div></td>
+                <td class="mono muted">5.2%</td>
+             </tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Slowest (Avg Response Time)</div>
+        <table>
+          <tr><th>#</th><th>Endpoint</th><th>Avg Time</th></tr>
+          <
+                <td class="rank">1</td>
+                <td class="mono">/api/seï¿½rch</td>
+                <td class="mono danger">4823 ms</td>
+             </tr><
+                <td class="rank">2</td>
+                <td class="mono">/apiï¿½orders/789</td>
+                <td class="mono danger">4163 ms</td>
+             </tr><
+                <td class="rank">3</td>
+                <td class="mono">/api/produï¿½ts</td>
+                <td class="mono danger">3223 ms</td>
+             </tr><
+                <td class="rank">4</td>
+                <td class="mono">/api/logï¿½n</td>
+                <td class="mono danger">2997 ms</td>
+             </tr><
+                <td class="rank">5</td>
+                <td class="mono">/api/products/456</td>
+                <td class="mono danger">2662 ms</td>
+             </tr><
+                <td class="rank">6</td>
+                <td class="mono">/api/orders</td>
+                <td class="mono danger">2634 ms</td>
+             </tr><
+                <td class="rank">7</td>
+                <td class="mono">/static/index.html</td>
+                <td class="mono danger">2611 ms</td>
+             </tr><
+                <td class="rank">8</td>
+                <td class="mono">/api/login</td>
+                <td class="mono danger">2590 ms</td>
+             </tr><
+                <td class="rank">9</td>
+                <td class="mono">/api/orders/789</td>
+                <td class="mono danger">2583 ms</td>
+             </tr><
+                <td class="rank">10</td>
+                <td class="mono">/static/app.js</td>
+                <td class="mono danger">2582 ms</td>
+             </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Clients</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Top IPs by Volume</div>
+        <table>
+          <tr><th>IP Address</th><th>Requests</th><th>%</th></tr>
+          <tr><td class='mono'>206.132.4.238</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>31.186.107.27</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>200.179.254.194</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>195.9.29.249</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>141.128.192.92</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>71.7.71.62</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>95.96.180.26</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>160.134.143.153</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>13.241.138.33</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr><tr><td class='mono'>89.187.47.39</td><td class='mono'>1</td><td class='mono muted'>0.0%</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">Failed Logins (401) by IP</div>
+        <table>
+          <tr><th>IP Address</th><th>Attempts</th></tr>
+          <tr><td class='mono'>200.179.254.194</td><td class='mono danger'>1</td></tr><tr><td class='mono'>182.33.196.5</td><td class='mono danger'>1</td></tr><tr><td class='mono'>93.186.223.217</td><td class='mono danger'>1</td></tr><tr><td class='mono'>166.189.239.14</td><td class='mono danger'>1</td></tr><tr><td class='mono'>82.49.139.87</td><td class='mono danger'>1</td></tr><tr><td class='mono'>20.90.18.220</td><td class='mono danger'>1</td></tr><tr><td class='mono'>210.229.189.52</td><td class='mono danger'>1</td></tr><tr><td class='mono'>119.174.218.94</td><td class='mono danger'>1</td></tr><tr><td class='mono'>44.12.130.160</td><td class='mono danger'>1</td></tr><tr><td class='mono'>236.150.212.167</td><td class='mono danger'>1</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const MONO = 'JetBrains Mono';
+const GRAY = '#94a3b8';
+const GRID = '#f1f5f9';
+
+const fullTrafficLabels = ["19:00", "20:00", "21:00", "22:00", "23:00", "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "15:00", "20:00"];
+const fullTrafficValues = [162, 81, 63, 50, 28, 1549, 802, 598, 356, 224, 133, 32, 10, 56];
+const displayLabels = ["19:00", "23:00", "03:00", "15:00", "20:00"];
+const displayValues = [162, 28, 356, 10, 56];
+
+new Chart(document.getElementById('trafficChart'), {
+  type: 'bar',
+  data: {
+    labels: displayLabels,
+    datasets: [{
+      label: 'Requests',
+      data: displayValues,
+      backgroundColor: '#f97316',
+      borderColor: '#ea580c',
+      borderWidth: 2,
+      borderRadius: 4,
+      
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: function(tooltipItems) {
+            const index = tooltipItems[0].dataIndex;
+            let originalLabel = displayLabels[index];
+            let actualIndex = -1;
+            for (let i = 0; i < fullTrafficLabels.length; i++) {
+              if (fullTrafficLabels[i] === originalLabel) {
+                actualIndex = i;
+                break;
+              }
+            }
+            if (actualIndex !== -1) {
+              const hour = fullTrafficLabels[actualIndex];
+              const count = fullTrafficValues[actualIndex];
+              return `${hour} - ${count.toLocaleString()} requests`;
+            }
+            return `${originalLabel}`;
+          },
+          label: function(context) {
+            return '';
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: GRAY,
+          font: { family: MONO, size: 11 },
+          maxRotation: 45,
+          minRotation: 45,
+          autoSkip: false
+        },
+        grid: { display: false },
+        title: {
+          display: true,
+          text: 'Hours',
+          color: GRAY,
+          font: { size: 10, family: MONO }
+        }
+      },
+      y: {
+        ticks: {
+          color: GRAY,
+          font: { family: MONO, size: 11 },
+          callback: function(value) {
+            return value.toLocaleString();
+          }
+        },
+        grid: { color: GRID },
+        title: {
+          display: true,
+          text: 'Number of Requests',
+          color: GRAY,
+          font: { size: 10, family: MONO }
+        }
+      }
+    }
+  }
+});
+
+new Chart(document.getElementById('statusChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ["Success ", "Client Error ", "Server Error ", "Other"],
+    datasets: [{
+      data: [3487, 522, 127, 306],
+      backgroundColor: ["#16a34a", "#f59e0b", "#ef4444", "#6b7280"],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: '#334155', font: { family: 'Inter', size: 12 }, padding: 16 }
+      }
+    }
+  }
+});
+
+new Chart(document.getElementById('rtimeChart'), {
+  type: 'bar',
+  data: {
+    labels: ["<100ms", "100-500ms", "500-1000ms", ">1000ms"],
+    datasets: [{
+      data: [99, 374, 432, 3689],
+      backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#b91c1c'],
+      borderWidth: 0,
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: GRAY, font: { family: MONO, size: 11 } }, grid: { display: false } },
+      y: { ticks: { color: GRAY, font: { family: MONO, size: 11 } }, grid: { color: GRID } }
+    }
+  }
+});
+</script>
+</body>
+</html>

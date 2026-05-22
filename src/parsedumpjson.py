@@ -1,5 +1,5 @@
 import json
-from parser import parse_entry
+from src.parser import parse_entry
 def parse_file(filepath):
     entries = []
     skipped = []
@@ -21,5 +21,3 @@ def parse_file(filepath):
         json.dump(entries, f, indent=2)
     
     return entries, skipped
-
-parse_file('../scripts/sampleLog.txt')

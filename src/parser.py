@@ -3,7 +3,14 @@ import datetime
 def parse_entry(line):
     blocks = line.strip().split()    
     result = {}
-    for block in blocks:
+    if len(blocks) > 1 and ':' in blocks[1] and blocks[1][0].isdigit():
+        result['timestamp'] = normalizeTimestamp(blocks[0] + ' ' + blocks[1])
+        rest = blocks[2:]
+    else:
+        result['timestamp'] = normalizeTimestamp(blocks[0])
+        rest = blocks[1:]
+        
+    for block in rest:
         
         if is_timestamp(block):
             result['timestamp'] = normalizeTimestamp(block)
@@ -43,37 +50,48 @@ def is_ip(b):
     return True
 
 def is_timestamp(b):
-    # HH:MM:SS time part — has colons, all parts are digits
-    if ':' in b:
-        parts = b.split(':')
-        return all(p[:2].isdigit() for p in parts)
-    
-    # date part — has - or / as separator, starts with 4 digit year or 2 digit day
-    if '-' in b or '/' in b:
-        return any(c.isdigit() for c in b)
-    
-    # unix epoch — exactly 10 digits
+    # Unix timestamp (10 digits)
     if b.isdigit() and len(b) == 10:
         return True
+    
+    # ISO format with T: 2024-03-15T14:23:01Z or 2024-03-15T14:23:01
+    if 'T' in b and ('-' in b or '/' in b):
+        return True
+    
+    # Date with spaces: 2024/03/15 14:23:01 or 15-Mar-2024 14:23:01
+    if ('-' in b or '/' in b) and ':' in b:
+        return True
+    
+    # Just time parts (colons and digits)
+    if ':' in b:
+        parts = b.split(':')
+        if len(parts) >= 2:
+            return all(p[:2].isdigit() for p in parts[:2])
     
     return False
 
 def is_responseTime(b):
+    # Remove unit suffix if present
     t = b
-    for unit in ['ms', 'µs', 'ns', 'min', 's']:
+    units = ['ms', 's', 'µs', 'ns', 'min']
+    for unit in units:
         if b.endswith(unit):
             t = b[:-len(unit)]
             break
+    
+    # Check if remaining is a valid number (int or float)
     try:
         float(t)
         return True
     except:
-        return False
+        return False    
     
 def normalizeTimestamp(raw):
     try:
         if raw.isdigit() and len(raw) == 10:
-            return datetime.datetime.fromtimestamp(int(raw)).isoformat()
+            # UTC timestamp
+            dt = datetime.datetime.utcfromtimestamp(int(raw))
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         return parser.parse(raw).isoformat()
     except:
         return None
@@ -98,6 +116,6 @@ def normalizeResponseTime(b):
 
 
     
-entry = "2024/03/15 14:23:01 10.0.0.7 POST /api/login 401 89ms"
-res = parse_entry(entry)
-print(res)
+# entry = "1710512581 10.0.0.7 POST /api/login 401 89ms"
+# res = parse_entry(entry)
+# print(res)
