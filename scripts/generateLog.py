@@ -12,8 +12,6 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# Ensure script directory exists
-os.makedirs("scripts", exist_ok=True)
 
 def random_ip():
     """Generate random IPv4 address."""
@@ -190,7 +188,7 @@ def generate_log_file(filepath, num_lines=500):
     print(f"File saved: {filepath}")
 
 if __name__ == "__main__":
-    output_file = sys.argv[1] if len(sys.argv) > 1 else "sampleLog.txt"
+    output_file = sys.argv[1] if len(sys.argv) > 1 else "../sampleLog.txt"
     num_lines = int(sys.argv[2]) if len(sys.argv) > 2 else 5000
     
     generate_log_file(output_file, num_lines)
